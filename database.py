@@ -53,8 +53,8 @@ chat_id integer,
 user_id_from integer,
 feedback text,
 date datetime,
-readed blob,
-archived bool)"""
+read blob default false,
+archived blob default false)"""
     return execute(request)
 
 def create_table_settings():
@@ -100,6 +100,14 @@ def update_chat(chat_id, period = None):
         request = f"UPDATE settings SET last = CURRENT_TIMESTAMP WHERE chat_id = {chat_id}"
     return execute(request)
 
+def read_fb(user_id):
+    request = f"UPDATE feedback SET read=TRUE WHERE user_id={user_id}"
+    return execute(request)
+
+def archive_fb(user_id):
+    request = f"UPDATE feedback SET archived=TRUE WHERE user_id={user_id}"
+    return execute(request)
+
 def new_chat(chat_id):
     request = f"INSERT INTO settings (chat_id)\
                 SELECT {chat_id}\
@@ -117,10 +125,10 @@ def add(feedback:str,user_id:int,
     request = \
 f"""INSERT INTO feedback \
 (     user_id,       chat_id,       user_id_from,\
-      feedback,      date,readed,archived)\
+      feedback,      date)\
 VALUES\
 ({str(user_id)},{str(chat_id)},{str(user_id_from)},\
-     \"{feedback}\",\"{now}\",0,0)
+     \"{feedback}\",\"{now}\")
     """
     return execute(request)
 

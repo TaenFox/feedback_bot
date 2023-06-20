@@ -246,6 +246,50 @@ async def handle_left_chat_member(message: types.Message):
         chat_id = message.chat.id
         db.update_chat(chat_id, period=0)
 
+@dp.message_handler(commands=['get'])
+async def get_command(message: types.Message):
+    user_id = message.from_user.id
+    messages = db.get_records(query=f"WHERE user_id = {user_id} \
+                              AND read = False AND archived = False \
+                              ORDER BY chat_id, date DESC")
+    from_user = ""
+    for feedback in messages:
+        chat = await bot.get_chat(feedback[1])
+        if feedback[2]==0: from_user = "Анонимно"
+        else: 
+            user = await chat.get_member(feedback[2])
+            from_user = f"От {user.user.full_name}"
+        await message.answer(f"{from_user} из чата {chat.full_name}\n\"{feedback[3]}\"")
+        await asyncio.sleep(1)
+    if len(messages)==0: await message.answer("Новых сообщений нет")
+    else: await message.answer("На этом всё")
+    db.read_fb(user_id)
+
+@dp.message_handler(commands=['get_all'])
+async def get_command(message: types.Message):
+    user_id = message.from_user.id
+    messages = db.get_records(query=f"WHERE user_id = {user_id} \
+                              AND archived = False \
+                              ORDER BY chat_id, date DESC")
+    from_user = ""
+    for feedback in messages:
+        chat = await bot.get_chat(feedback[1])
+        if feedback[2]==0: from_user = "Анонимно"
+        else: 
+            user = await chat.get_member(feedback[2])
+            from_user = f"От {user.user.full_name}"
+        await message.answer(f"{from_user} из чата {chat.full_name}\n\"{feedback[3]}\"")
+        await asyncio.sleep(1)
+    if len(messages)==0: await message.answer("Cообщений нет")
+    else: await message.answer("На этом всё")
+    db.read_fb(user_id)
+
+@dp.message_handler(commands=['clear'])
+async def get_command(message: types.Message):
+    user_id = message.from_user.id
+    db.archive_fb(user_id)
+    await message.answer("Входящие сообщения очищены")
+
 async def scheduled_actions():
     while True:
         chats = db.get_chats("minutes")
