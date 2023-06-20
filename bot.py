@@ -51,6 +51,10 @@ async def feedback_command(message: types.Message):
 @dp.message_handler(content_types=types.ContentType.NEW_CHAT_MEMBERS)
 async def on_new_chat_members(message: types.Message):
     chat_id = message.chat.id    
+    new_members = message.new_chat_members
+    bot_id = await bot.get_me()
+    for member in new_members:
+        if member.id != bot_id: return
     db.new_chat(chat_id)
     keyboard = types.InlineKeyboardMarkup(row_width=1)
     keyboard.add(types.InlineKeyboardButton(text="Хочу получать ОС!", callback_data="register"))
@@ -81,8 +85,8 @@ async def callback_register(call: types.CallbackQuery, state: FSMContext):
         await dp.bot.edit_message_reply_markup(chat_id,call.message.message_id,None)
         return
     member = await bot.get_chat_member(chat_id=chat_id, user_id=user_id)
-    db.register(user_id,chat_id)
     if db.is_registered(chat_id, user_id) == 0:
+        db.register(user_id,chat_id)
         await dp.bot.send_message(chat_id, f"Теперь можно оставить ОС для: {member.user.full_name}")
     else:
         await call.answer("Вы уже зарегистрированы")
