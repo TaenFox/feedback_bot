@@ -4,12 +4,13 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.dispatcher.filters.state import State, StatesGroup
+import os
 
 import config
 import database as db
 
 # Парсинг файла конфигурации
-TOKEN = config.telebot.get("token")
+TOKEN = os.environ.get("TOKEN")
 
 # Настройки базы данных
 DB_FILE = 'database.db'
