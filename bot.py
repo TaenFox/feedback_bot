@@ -57,7 +57,7 @@ async def on_new_chat_members(message: types.Message):
     new_members = message.new_chat_members
     bot_id = await bot.get_me()
     for member in new_members:
-        if member.id != bot_id: return
+        if member.id != bot_id.id: return
     db.new_chat(chat_id)
     keyboard = types.InlineKeyboardMarkup(row_width=1)
     keyboard.add(types.InlineKeyboardButton(text="Хочу получать ОС!", callback_data="register"))
