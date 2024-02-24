@@ -27,14 +27,19 @@ dp = Dispatcher(bot, loop=loop, storage=MemoryStorage())
 logging.basicConfig(level=logging.INFO)
 
 class Feedback_states(StatesGroup):
-    user_id = State()
-    chat_id = State()
+    user_id = State()   # TODO вроде не используется, проверить/удалить
+    chat_id = State()   # TODO вроде не используется, проверить/удалить
     feedback = State()
     aprove = State()
 
-# Обработчик команды /start
+
 @dp.message_handler(commands=['start'])
 async def start_command(message: types.Message):
+    '''
+    Функция обрабатывает команду /start. При вызове этой команды отправляет в личные сообщения пользователю
+    приветственное сообщение
+    TODO добавить ограничение на вызов команды только из личных сообщений
+    '''
     await dp.bot.send_message(message.from_user.id,"Привет! Добавь меня в групповой чат, и я буду отправлять вам сообщение с кнопкой\
 \"Отправить обратную связь\" каждый день в заданное время. Другие доступные команды:\n\
 - /get - получить новые сообщения\n\
@@ -44,15 +49,24 @@ async def start_command(message: types.Message):
 - /butter - метод бутерброда \n\
 - /sandwich - метод сэндвича \n")
     
-# Обработчик команды /feedback
+
 @dp.message_handler(commands=['feedback'])
 async def feedback_command(message: types.Message):
+    '''
+    Функция обрабатывает нажатие на команду в приветственном сообщении в чате, 
+    отправляя сообщение-напоминание об обратной связи
+    TODO переделать способ вызова
+    '''
     await reminder(message.chat.id)
 
 
-# Обработчик добавления бота в групповой чат
 @dp.message_handler(content_types=types.ContentType.NEW_CHAT_MEMBERS)
 async def on_new_chat_members(message: types.Message):
+    '''
+    Функция обрабатывает событие добавление этого бота в групповой чат. В результате регистрирует чат
+    в БД и пишет приветственное сообщение в этот чат.
+    TODO добавить автоматическую регистрацию новых участников чата
+    '''
     chat_id = message.chat.id    
     new_members = message.new_chat_members
     bot_id = await bot.get_me()
@@ -78,9 +92,15 @@ async def on_new_chat_members(message: types.Message):
     await dp.bot.send_message(chat_id, message, reply_markup=keyboard)
 
 
-# Логика инлайн кнопки - 'Отправить обратную связь'
+
 @dp.callback_query_handler(lambda query: query.data == "register")
 async def callback_register(call: types.CallbackQuery, state: FSMContext):
+    '''
+    Функция обрабатывает нажатие кнопки 'Отправить обратную связь' в групповом чате.
+    Поддерживает одновременную регистрацию до 20 человек (TODO исправить). 
+    Если произошла успешная регистрация в системе - отправляет сообщение в групповой чат, 
+    что можно оставить обратную связь для нового пользователя
+    '''
     user_id = call.from_user.id
     chat_id = call.message.chat.id
     if db.get_register_count(chat_id)>20:
@@ -94,8 +114,11 @@ async def callback_register(call: types.CallbackQuery, state: FSMContext):
     else:
         await call.answer("Вы уже зарегистрированы")
 
-# Сообщение-напоминание в групповой чат
+
 async def reminder(chat_id):
+    '''
+    Функция отправляет в групповой чат сообщение-напоминание об обратной связи с кнопками
+    '''
     bot_info = await bot.get_me()
     bot_un = bot_info.username
     deep_link_url = f't.me/{bot_un}'
@@ -117,9 +140,13 @@ async def reminder(chat_id):
 Можно отправить для:{members_list}\n\
 Чтобы оставить сообщение нужно начать со мной диалог", reply_markup=keyboard)
 
-# Логика инлайн кнопки - 'Отправить обратную связь'
+
 @dp.callback_query_handler(lambda query: query.data == "ask_feedback")
 async def callback_accept(call: types.CallbackQuery):
+    '''
+    Функция обрабатывает нажатие кнопки 'Отправить обратную связь'. В результате отправляет 
+    в личные сообщения пользователю, который нажал кнопку, список пользователей, доступных для обратной связи
+    '''
     await call.answer("Отправил тебе список участников в личном чате")
     user_id = call.from_user.id
     chat_id = call.message.chat.id
@@ -128,8 +155,13 @@ async def callback_accept(call: types.CallbackQuery):
     await dp.bot.send_message(user_id, 
                               f"Кому оставить связь в чате {call.message.chat.title}?", 
                               reply_markup= await user_buttons_list(chat_id))
-    
+
 async def user_buttons_list(chat_id) -> types.InlineKeyboardMarkup:
+    '''
+    Функция возвращает объект клавиатуры который содержит список участников указанного чата,
+    которым можно отправить обратную связь.
+    TODO сделать пагинацию и убрать ограничение в 20 участников
+    '''
     chat_members = db.get_users(chat_id)
     keyboard = types.InlineKeyboardMarkup(row_width=1)
     for member_id in chat_members:
@@ -140,9 +172,12 @@ async def user_buttons_list(chat_id) -> types.InlineKeyboardMarkup:
     keyboard.add(types.InlineKeyboardButton(text="Отменить", callback_data="cancel"))
     return keyboard
 
-# Логика инлайн кнопки - 'Отменить'
 @dp.callback_query_handler(lambda query: query.data == "cancel")
 async def callback_cancel(call: types.CallbackQuery, state: FSMContext, deleted:bool = False):
+    '''
+    Функция выполняется, если была нажата кнопка "Отменить". 
+    Очищает значения статусов чата, а также удаляет исходное сообщение с кнопкой
+    '''
     user_id = call.from_user.id
     message_id = call.message.message_id
     await state.finish()
@@ -154,11 +189,19 @@ async def callback_cancel(call: types.CallbackQuery, state: FSMContext, deleted:
 
 @dp.callback_query_handler(lambda query: query.data.startswith("period;"))
 async def response_settings(call: types.CallbackQuery, state: FSMContext):
+    '''
+    Функция выполняется в случае, если была нажата кнопка 
+    изменения периода напоминания об обратной связи.
+    В результате изменяет значение периода обратной связи в БД и 
+    отправляет сообщение в этот чат об актуальной настройке периода 
+    '''
     data = call.data
     user_name = call.from_user.full_name
     chat_id = call.message.chat.id
     period = int(data.split(";")[-1])
+    # запись в БД значения периода
     db.update_chat(chat_id, period)
+
     speriod:str
     if period == 0: speriod = "отключено"
     elif period == 1: speriod = "ежедневно"
@@ -170,6 +213,14 @@ async def response_settings(call: types.CallbackQuery, state: FSMContext):
 
 @dp.callback_query_handler(lambda query: query.data.startswith("fb;"))
 async def choose_user(call: types.CallbackQuery, state: FSMContext):
+    '''
+    Функция выполняется в случае обработки нажатия кнопки в чате с ботом
+    которая выбирает пользователя из списка по чату
+    Идентификация нажатия кнопки такого типа происходит
+    по началу строки payload "fb;*". Идентификатор пользователя, которому даётся фидбек, и чат,
+    в котором он даётся сохраняются в статусе
+    Можно улучшить чтобы использовать маску "fb;{userId};{chatId}"
+    '''
     data = call.data
     user_id = call.from_user.id
     message_id = call.message.message_id
@@ -184,10 +235,19 @@ async def choose_user(call: types.CallbackQuery, state: FSMContext):
     await dp.bot.send_message(user_id, "Напиши в следующем сообщении обратную связь и \
                                 отправь её мне. Я покажу тебе результат и предложу отправить анонимно или нет",
                                 reply_markup=keyboard)
+    # Переводим чат с пользователем в статус ожидания сообщения фидбека
+    # тут ожидается от пользователя ввод текста
     await Feedback_states.feedback.set()
 
 @dp.message_handler(state=Feedback_states.feedback)
-async def procced_feedback(message: types.Message, state: FSMContext):    
+async def procced_feedback(message: types.Message, state: FSMContext): 
+    '''
+    Функция выполняется в ситуации, когда статус чата с пользователем feedback, 
+    т.е. ожидается ввод текстового сообщения для обратной связи. Текст полученного 
+    текстового сообщения отправляется обратно в чат пользователю с кнопкой
+    для подтверждения. \n
+    Введённый фидбек сохраняется в статусе
+    '''   
     user_id = message.from_user.id
     await bot.delete_message(user_id, message.message_id)
     try:
@@ -208,6 +268,15 @@ async def procced_feedback(message: types.Message, state: FSMContext):
 
 @dp.callback_query_handler(state=Feedback_states.aprove)      
 async def aprove_feedback(call: types.CallbackQuery, state: FSMContext):
+    '''
+    Функция выполняется в ситуации, когда статус чата с пользователем aprove и нажата кнопка,
+    т.е. сообщение с фидбеком уже было отправлено и ожидается нажатие одной из кнопок:
+    - Анонимно (отправить фидбек) - фидбек сохраняется в БД без указания автора
+    - Публично (отправить фидбек) - фидбек сохраняется в БД с указанием автора
+    - Отмена (перейти в начальное состояние) - введённый текст, идентификаторы чата и пользователей сбрасываются
+    - Переписать (фидбек) - переход в состояние ожидания ввода текста, введённый фидбекс сбрасывается
+
+    '''
     data = call.data
     from_user_id = call.from_user.id
     message_id = call.message.message_id
@@ -246,6 +315,11 @@ async def aprove_feedback(call: types.CallbackQuery, state: FSMContext):
 
 @dp.message_handler(content_types=[types.ContentType.LEFT_CHAT_MEMBER])
 async def handle_left_chat_member(message: types.Message):
+    '''
+    Функция обрабатывает событие удаление бота из чата. Для такого чата отключаются напоминания.
+    TODO при удалении бота из чата очищать список пользователей, кому можно дать ОС
+    TODO при удалении участника чата - убирать его из списка пользователей, кому можно дать ОС
+    '''
     left_member = message.left_chat_member
     bot_id = await bot.get_me()
 
@@ -255,6 +329,12 @@ async def handle_left_chat_member(message: types.Message):
 
 @dp.message_handler(commands=['get'])
 async def get_command(message: types.Message):
+    '''
+    Функция обрабатывает вызов команды, по которой в чат отправляются 
+    только новые сообщения обратной связи.
+    Можно вызвать как в чате с ботом, так и в групповом
+    TODO ограничить вызов команды личными сообщениями
+    '''
     user_id = message.from_user.id
     messages = db.get_records(query=f"WHERE user_id = {user_id} \
                               AND read = False AND archived = False \
@@ -274,6 +354,12 @@ async def get_command(message: types.Message):
 
 @dp.message_handler(commands=['get_all'])
 async def get_command(message: types.Message):
+    '''
+    Функция обрабатывает вызов команды, по которой в чат отправляются 
+    все сообщения обратной связи за всё время.
+    Можно вызвать как в чате с ботом, так и в групповом
+    TODO ограничить вызов команды личными сообщениями
+    '''
     user_id = message.from_user.id
     messages = db.get_records(query=f"WHERE user_id = {user_id} \
                               AND archived = False \
@@ -293,11 +379,22 @@ async def get_command(message: types.Message):
 
 @dp.message_handler(commands=['clear'])
 async def get_command(message: types.Message):
+    '''
+    Функция обрабатывает вызов команды, по которой прочитанные сообщения ОС
+    архивируются (помечаются удалёнными)
+    Можно вызвать как в чате с ботом, так и в групповом
+    TODO ограничить вызов команды личными сообщениями
+    '''
     user_id = message.from_user.id
     db.archive_fb(user_id)
     await message.answer("Входящие сообщения очищены")
 
 async def scheduled_actions():
+    '''
+    Функция-планировщик, которая вызывается раз в 10 минут и выполняет действия:
+    - отправка по чатам, соответствующим выборке, сообщение-напоминание
+    TODO вынести значение ед.изм. интервала в переменные
+    '''
     while True:
         chats = db.get_chats("minutes")
         for chat in chats:
@@ -305,8 +402,11 @@ async def scheduled_actions():
             await reminder(chat_id)
             db.update_chat(chat_id)
         # Временная задержка в 10 минут
-        await asyncio.sleep(10)
+        await asyncio.sleep(1)
 
+# TODO продумать справочную информацию
+# TODO добавить администратора, как id в переменные среды
+# TODO добавить команды для администратора: сделать дамп, накатить дамп, вывод ошибок в лс
 
 if __name__ == '__main__':
     db.create_table_feedback()
