@@ -136,6 +136,7 @@ async def reminder(chat_id):
     keyboard.add(types.InlineKeyboardButton(text="Раз в 2 недели", callback_data="period;14"),
                  types.InlineKeyboardButton(text="Отключить напоминания", callback_data="period;0"))
     keyboard.add(types.InlineKeyboardButton(text="Перейти к сообщениям с ботом", url=deep_link_url))
+    # TODO специализировать сообщение
     await dp.bot.send_message(chat_id, f"Напоминаю про ОС!\n\
 Можно отправить для:{members_list}\n\
 Чтобы оставить сообщение нужно начать со мной диалог", reply_markup=keyboard)
@@ -346,6 +347,7 @@ async def get_command(message: types.Message):
         else: 
             user = await chat.get_member(feedback[2])
             from_user = f"От {user.user.full_name}"
+        # TODO добавить конкретики - дата и время, когда ОС оставили
         await message.answer(f"{from_user} из чата {chat.full_name}\n\"{feedback[3]}\"")
         await asyncio.sleep(1)
     if len(messages)==0: await message.answer("Новых сообщений нет")
@@ -371,6 +373,7 @@ async def get_command(message: types.Message):
         else: 
             user = await chat.get_member(feedback[2])
             from_user = f"От {user.user.full_name}"
+        # TODO добавить конкретики - дата и время, когда ОС оставили
         await message.answer(f"{from_user} из чата {chat.full_name}\n\"{feedback[3]}\"")
         await asyncio.sleep(1)
     if len(messages)==0: await message.answer("Cообщений нет")
@@ -404,6 +407,7 @@ async def scheduled_actions():
         # Временная задержка в 10 минут
         await asyncio.sleep(1)
 
+# TODO добавить функциональность вывода списка команд
 # TODO продумать справочную информацию
 # TODO добавить администратора, как id в переменные среды
 # TODO добавить команды для администратора: сделать дамп, накатить дамп, вывод ошибок в лс
